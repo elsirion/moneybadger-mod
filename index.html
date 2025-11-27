@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moneybadger QR Scanner</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <script type="module" src="https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --color-primary: rgb(11, 16, 19);
+            --color-white: rgb(255, 255, 255);
+            --color-green: rgb(0, 168, 42);
+            --color-red: rgb(224, 11, 0);
+            --color-grey: rgb(133, 135, 137);
+            --color-light-grey: rgb(211, 212, 219);
+            --color-extra-light-grey: rgb(233, 233, 234);
+            --font-body: 16px;
+            --font-h1: 32px;
+            --font-h2: 24px;
+            --font-caption: 14px;
+            --font-small: 12px;
+        }
+
+        body {
+            font-family: 'Albert Sans', sans-serif;
+            color: var(--color-primary);
+            background: var(--color-white);
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .info-section {
+            flex: 0 0 auto;
+            padding: 20px;
+            background: var(--color-white);
+            border-bottom: 1px solid var(--color-extra-light-grey);
+            transition: all 0.3s ease;
+            max-height: 50vh;
+            overflow-y: auto;
+        }
+
+        .info-section.hidden {
+            max-height: 0;
+            padding: 0;
+            border: none;
+        }
+
+        .scanner-section {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: var(--color-primary);
+            position: relative;
+        }
+
+        #scanner-video {
+            width: 100%;
+            max-width: 480px;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            object-fit: cover;
+        }
+
+        .scanner-instructions {
+            color: var(--color-white);
+            text-align: center;
+            margin-top: 16px;
+            font-size: var(--font-caption);
+        }
+
+        h1 {
+            font-size: var(--font-h1);
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            font-size: var(--font-h2);
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: var(--font-small);
+            font-weight: 500;
+            margin-bottom: 16px;
+        }
+
+        .status.success {
+            background: rgba(0, 168, 42, 0.1);
+            color: var(--color-green);
+        }
+
+        .status.error {
+            background: rgba(224, 11, 0, 0.1);
+            color: var(--color-red);
+        }
+
+        .status.pending {
+            background: rgba(133, 135, 137, 0.1);
+            color: var(--color-grey);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--color-extra-light-grey);
+        }
+
+        .info-label {
+            font-size: var(--font-caption);
+            color: var(--color-grey);
+        }
+
+        .info-value {
+            font-size: var(--font-body);
+            font-weight: 600;
+            text-align: right;
+            word-break: break-all;
+        }
+
+        .button {
+            position: relative;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 500;
+            border-radius: 40px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: var(--font-caption);
+            text-decoration: none;
+            padding: 16px 32px;
+            width: 100%;
+            margin-top: 16px;
+        }
+
+        .button-primary {
+            background: var(--color-primary);
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), transparent), var(--color-primary);
+            color: var(--color-white);
+        }
+
+        .button-primary:hover {
+            filter: brightness(1.25);
+        }
+
+        .button-primary:active {
+            filter: brightness(1.5);
+        }
+
+        .button-secondary {
+            background: var(--color-white);
+            background: linear-gradient(to bottom, var(--color-white), rgba(11, 16, 19, 0.1));
+            color: var(--color-primary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .button-secondary:hover {
+            filter: brightness(0.95);
+        }
+
+        .button-secondary:active {
+            filter: brightness(0.9);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: var(--color-white);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        .loading-large {
+            display: inline-block;
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--color-extra-light-grey);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+        }
+
+        .loading-container.hidden {
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(224, 11, 0, 0.1);
+            color: var(--color-red);
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+            font-size: var(--font-caption);
+        }
+
+        .success-checkmark {
+            width: 80px;
+            height: 80px;
+            background: var(--color-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+        }
+
+        .success-checkmark::after {
+            content: '';
+            display: block;
+            width: 20px;
+            height: 35px;
+            border: solid white;
+            border-width: 0 6px 6px 0;
+            transform: rotate(45deg);
+            margin-bottom: 8px;
+        }
+
+        .success-message {
+            text-align: center;
+            padding: 24px 0;
+            border-bottom: 1px solid var(--color-extra-light-grey);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="info-section" class="info-section hidden">
+            <h2 id="info-title">Payment Ready</h2>
+            <div class="status pending" id="payment-status">Ready to Pay</div>
+
+            <div id="payment-info"></div>
+
+            <div id="loading-spinner" class="loading-container hidden">
+                <div class="loading-large"></div>
+                <p style="margin-top: 16px; color: var(--color-grey); font-size: var(--font-caption);">Fetching payment info</p>
+            </div>
+
+            <button id="pay-button" class="button button-primary" onclick="handlePayment()" style="display: none;">
+                Pay with Lightning
+            </button>
+            <button id="retry-button" class="button button-secondary" onclick="resetScanner()" style="display: none;">
+                Scan Another
+            </button>
+        </div>
+
+        <div class="scanner-section">
+            <video id="scanner-video"></video>
+            <div class="scanner-instructions">
+                Position a Moneybadger retailer QR code within the frame
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import QrScanner from 'https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js';
+
+        let scanner;
+        let currentInvoice = null;
+        let currentQrData = null;
+
+        // Initialize scanner
+        async function initScanner() {
+            const video = document.getElementById('scanner-video');
+
+            scanner = new QrScanner(
+                video,
+                result => handleQrScanned(result.data),
+                {
+                    highlightScanRegion: true,
+                    highlightCodeOutline: true,
+                    preferredCamera: 'environment',
+                    returnDetailedScanResult: true
+                }
+            );
+
+            scanner.setInversionMode('both');
+            await scanner.start();
+        }
+
+
+        // Handle QR code scanned
+        async function handleQrScanned(data) {
+            console.log('QR Scanned:', data);
+            currentQrData = data;
+
+            // Stop scanner
+            if (scanner) {
+                await scanner.stop();
+            }
+
+            // Show info section with loading state
+            const infoSection = document.getElementById('info-section');
+            infoSection.classList.remove('hidden');
+
+            // Show loading spinner
+            showLoading();
+
+            // Update status
+            updateStatus('pending', 'Fetching payment info...');
+
+            try {
+                // Use Moneybadger Scanner API (production)
+                const scanEndpoint = 'https://api.moneybadger.sirion.io/scanner/v1/scan';
+                console.log('Calling Scanner API:', scanEndpoint);
+
+                // Generate unique IDs for this scan
+                const timestamp = new Date().toISOString();
+                const scanId = `scan-${Date.now()}`;
+                const deviceId = `fedi-${navigator.userAgent.substring(0, 20)}`;
+                const userId = `user-${Date.now()}`;
+
+                const requestBody = {
+                    scan_id: scanId,
+                    time: timestamp,
+                    device_id: deviceId,
+                    user_id: userId,
+                    scan_data: data,
+                    allowed_payment_methods: ['lightning']
+                };
+
+                console.log('Request body:', requestBody);
+
+                const response = await fetch(scanEndpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': 'YOUR-API-KEY-HERE'  // Replace with actual API key
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const scanData = await response.json();
+                console.log('Scanner API Response:', scanData);
+
+                if (scanData.status === 'ERROR') {
+                    throw new Error(scanData.reason || 'Payment request failed');
+                }
+
+                // Extract payment info
+                if (scanData.payment_methods && scanData.payment_methods.lightning) {
+                    currentInvoice = scanData.payment_methods.lightning;
+                    displayPaymentInfo({
+                        merchantName: scanData.merchant_name,
+                        amountCents: scanData.amount_cents,
+                        currency: scanData.currency,
+                        invoice: currentInvoice
+                    });
+
+                    // Auto-trigger payment immediately
+                    handlePayment();
+                } else {
+                    throw new Error('No Lightning payment method available');
+                }
+            } catch (error) {
+                console.error('Error fetching payment:', error);
+                hideLoading();
+                displayError(error.message);
+                updateStatus('error', 'Error');
+                showRetryButton();
+            }
+        }
+
+        // Decode BOLT11 invoice to extract amount
+        function decodeInvoiceAmount(invoice) {
+            try {
+                // Match lnbc or lntb followed by amount and multiplier
+                const match = invoice.match(/^ln(bc|tb|bcrt)(\d+)([munp])?/i);
+                if (!match) return null;
+
+                const amount = parseInt(match[2]);
+                const multiplier = match[3];
+
+                if (!amount) return null;
+
+                // Multipliers convert to BTC
+                const multipliers = {
+                    'm': 0.001,           // milli = 0.001 BTC
+                    'u': 0.000001,        // micro = 0.000001 BTC
+                    'n': 0.000000001,     // nano = 0.000000001 BTC
+                    'p': 0.000000000001   // pico = 0.000000000001 BTC
+                };
+
+                const btcAmount = amount * (multipliers[multiplier] || 1);
+                const satoshis = Math.round(btcAmount * 100000000); // Convert BTC to sats
+
+                return satoshis;
+            } catch (e) {
+                console.error('Error decoding invoice:', e);
+                return null;
+            }
+        }
+
+        // Display payment information
+        function displayPaymentInfo(data) {
+            const infoDiv = document.getElementById('payment-info');
+
+            // Amount is in cents from the API
+            const amountCents = data.amountCents || 0;
+            const zarAmount = (amountCents / 100).toFixed(2);
+
+            // Parse the actual amount from the Lightning invoice
+            const amountSats = decodeInvoiceAmount(data.invoice || currentInvoice);
+
+            const amountInfo = (amountCents > 0 && amountSats) ? `
+                <div class="info-row">
+                    <span class="info-label">Amount</span>
+                    <span class="info-value">R ${zarAmount} (${amountSats.toLocaleString()} sats)</span>
+                </div>
+            ` : '';
+
+            const merchantInfo = data.merchantName ? `
+                <div class="info-row">
+                    <span class="info-label">Merchant</span>
+                    <span class="info-value">${data.merchantName}</span>
+                </div>
+            ` : '';
+
+            infoDiv.innerHTML = `
+                ${merchantInfo}
+                ${amountInfo}
+            `;
+        }
+
+
+        // Show/hide loading spinner
+        function showLoading() {
+            document.getElementById('loading-spinner').classList.remove('hidden');
+            document.getElementById('payment-info').style.display = 'none';
+            document.getElementById('pay-button').style.display = 'none';
+            document.getElementById('retry-button').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-spinner').classList.add('hidden');
+            document.getElementById('payment-info').style.display = 'block';
+        }
+
+        function showRetryButton() {
+            document.getElementById('retry-button').style.display = 'block';
+        }
+
+        // Display error
+        function displayError(message) {
+            const infoDiv = document.getElementById('payment-info');
+            infoDiv.innerHTML = `
+                <div class="error-message">
+                    ${message}
+                </div>
+            `;
+        }
+
+        // Update status badge
+        function updateStatus(type, text) {
+            const statusEl = document.getElementById('payment-status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = text;
+        }
+
+        // Handle payment via WebLN
+        window.handlePayment = async function() {
+            if (!currentInvoice) return;
+
+            const titleEl = document.getElementById('info-title');
+            const payButton = document.getElementById('pay-button');
+
+            try {
+                titleEl.textContent = 'Awaiting Payment';
+                updateStatus('pending', 'Awaiting payment...');
+
+                // Show payment info if not visible
+                hideLoading();
+
+                // Check if WebLN is available
+                if (typeof window.webln === 'undefined') {
+                    throw new Error('WebLN not available. Please use a Lightning-enabled wallet.');
+                }
+
+                // Enable WebLN
+                await window.webln.enable();
+
+                // Send payment
+                const result = await window.webln.sendPayment(currentInvoice);
+                console.log('Payment result:', result);
+
+                titleEl.textContent = 'Payment Complete';
+                updateStatus('success', 'Payment Successful!');
+
+                // Show success checkmark at the top
+                const infoDiv = document.getElementById('payment-info');
+                const currentContent = infoDiv.innerHTML;
+                infoDiv.innerHTML = `
+                    <div class="success-message">
+                        <div class="success-checkmark"></div>
+                        <div style="font-size: var(--font-h2); font-weight: 600; color: var(--color-green);">Payment Successful!</div>
+                    </div>
+                    ${currentContent}
+                `;
+
+                // Show "Scan Another" button
+                showRetryButton();
+
+            } catch (error) {
+                console.error('Payment error:', error);
+                titleEl.textContent = 'Payment Failed';
+                updateStatus('error', 'Payment Failed');
+                displayError(error.message || 'Payment failed. Please try again.');
+                showRetryButton();
+            }
+        };
+
+        // Reset scanner
+        window.resetScanner = function() {
+            currentInvoice = null;
+            currentQrData = null;
+
+            const infoSection = document.getElementById('info-section');
+            infoSection.classList.add('hidden');
+
+            document.getElementById('info-title').textContent = 'Payment Ready';
+            document.getElementById('payment-info').innerHTML = '';
+            document.getElementById('payment-info').style.display = 'block';
+            document.getElementById('pay-button').style.display = 'none';
+            document.getElementById('retry-button').style.display = 'none';
+            document.getElementById('loading-spinner').classList.add('hidden');
+
+            updateStatus('pending', 'Ready to Pay');
+
+            if (scanner) {
+                scanner.start();
+            }
+        };
+
+        // Initialize on page load
+        initScanner().catch(error => {
+            console.error('Failed to initialize scanner:', error);
+            alert('Failed to initialize camera. Please ensure camera permissions are granted.');
+        });
+    </script>
+</body>
+</html>
