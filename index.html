@@ -349,8 +349,8 @@
             updateStatus('pending', 'Fetching payment info...');
 
             try {
-                // Use Moneybadger Scanner API (production)
-                const scanEndpoint = 'https://api.moneybadger.sirion.io/scanner/v1/scan';
+                // Use Moneybadger Scanner API (proxied through nginx)
+                const scanEndpoint = '/api/scanner/v1/scan';
                 console.log('Calling Scanner API:', scanEndpoint);
 
                 // Generate unique IDs for this scan
